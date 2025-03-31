@@ -59,15 +59,15 @@
   let geoData, currentYear = 2015, autoplay = false;
 
   Promise.all([
-    d3.json("/data/world.geojson"),
-    d3.json("/data/average_team_cost.json"),
-    d3.json("/data/full_players_costs.json"),
-    d3.json("/data/legionnaires_total_amount.json"),
-    d3.json("/data/national_teams_players_total_amount.json"),
-    d3.json("/data/total_average_age.json"),
-    d3.json("/data/country_names.json"),
-    d3.json("/data/club_info.json"),
-    d3.json("/data/country_info.json")
+    d3.json("data/world.geojson"),
+    d3.json("data/average_team_cost.json"),
+    d3.json("data/full_players_costs.json"),
+    d3.json("data/legionnaires_total_amount.json"),
+    d3.json("data/national_teams_players_total_amount.json"),
+    d3.json("data/total_average_age.json"),
+    d3.json("data/country_names.json"),
+    d3.json("data/club_info.json"),
+    d3.json("data/country_info.json")
   ]).then(([geoDataResponse,
     averageTeamCostResponse,
     fullPlayersCostResponse,
