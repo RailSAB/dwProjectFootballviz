@@ -58,24 +58,43 @@
 
   let geoData, currentYear = 2015, autoplay = false;
 
-  const loadData = async () => {
-    geoData = await d3.json("/data/world.geojson");
+  Promise.all([
+    d3.json("/data/world.geojson"),
+    d3.json("/data/average_team_cost.json"),
+    d3.json("/data/full_players_costs.json"),
+    d3.json("/data/legionnaires_total_amount.json"),
+    d3.json("/data/national_teams_players_total_amount.json"),
+    d3.json("/data/total_average_age.json"),
+    d3.json("/data/country_names.json"),
+    d3.json("/data/club_info.json"),
+    d3.json("/data/country_info.json")
+  ]).then(([geoDataResponse,
+    averageTeamCostResponse,
+    fullPlayersCostResponse,
+    legionnairesTotalAmountResponse,
+    nationalTeamPlayersTotalAmountResponse,
+    totalAverageAgeResponse,
+    countryMappingDataResponse,
+    clubInfoResponse,
+    countryInfoResponse]) => {
+    geoData = geoDataResponse;
     statsData = {
-      average_team_cost: await d3.json("/data/average_team_cost.json"),
-      full_players_cost: await d3.json("/data/full_players_costs.json"),
-      legionnaires_total_amount: await d3.json("/data/legionnaires_total_amount.json"),
-      national_team_players_total_amount: await d3.json("/data/national_teams_players_total_amount.json"),
-      total_average_age: await d3.json("/data/total_average_age.json"),
+      average_team_cost: averageTeamCostResponse,
+      full_players_cost: fullPlayersCostResponse,
+      legionnaires_total_amount: legionnairesTotalAmountResponse,
+      national_team_players_total_amount: nationalTeamPlayersTotalAmountResponse,
+      total_average_age: totalAverageAgeResponse,
     };
-    countryMappingData = await d3.json("/data/country_names.json");
+    countryMappingData = countryMappingDataResponse;
     countryMapping = countryMappingData.reduce((acc, entry) => {
       acc[entry.EnglishName] = entry.NationalTeamID;
       return acc;
     }, {});
-    clubInfo = await d3.json("/data/club_info.json");
-    countryInfo = await d3.json("/data/country_info.json");
+    clubInfo = clubInfoResponse;
+    countryInfo = countryInfoResponse;
+
     updateMap();
-  };
+  });
 
   const valueFields = {
     average_team_cost: "TeamCost",
@@ -385,7 +404,6 @@
     svg.transition().call(zoom.transform, d3.zoomIdentity);
   });
 
-  loadData();
 
 
   function updateCountryInfoTable(selectedMeasure, selectedYear, countryClubs) {
