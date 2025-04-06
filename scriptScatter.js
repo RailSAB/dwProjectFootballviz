@@ -25,6 +25,7 @@ const svg = d3
 
 svg.append("g").attr("class", "x-axis");
 svg.append("g").attr("class", "y-axis");
+const gridContainer = svg.append("g").attr("class", "grid-container");
 
 let xScale = d3.scaleLinear().range([margin.left, width - margin.right]);
 let yScale = d3.scaleLinear().range([height - margin.bottom, margin.top]);
@@ -116,23 +117,65 @@ Promise.all([
 
   const legendContainer = d3.select("#scatter-legend-container");
   legendContainer.selectAll(".legend-item")
-    .data(countryNames)
-    .enter()
-    .append("div")
-    .attr("class", "legend-item")
-    .each(function (country) {
-      const legendItem = d3.select(this);
-      legendItem.append("span")
-        .style("background-color", colorScale(country))
-        .style("display", "inline-block")
-        .style("width", "15px")
-        .style("height", "15px")
-        .style("margin-right", "5px")
-        .style("border-radius", "50%");
-      legendItem.append("span").text(country);
+  .data(countryNames)
+  .enter()
+  .append("div")
+  .attr("class", "legend-item")
+  .each(function (country) {
+    const legendItem = d3.select(this);
+    legendItem.append("span")
+      .style("background-color", colorScale(country))
+      .style("display", "inline-block")
+      .style("width", "15px")
+      .style("height", "15px")
+      .style("margin-right", "5px")
+      .style("border-radius", "50%");
+    legendItem.append("span").text(country);
+
+    // Добавляем обработчик клика для подсветки клубов
+    legendItem.on("click", () => {
+      svg.selectAll("circle")
+        .attr("opacity", (d) => {
+          const clubCountry = countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName;
+          return clubCountry === country ? 1 : 0.2; // Подсвечиваем клубы из выбранной страны
+        });
+        trajectoryContainer.selectAll("path").remove();
     });
+  });
 });
 
+
+function updateGrid() {
+  gridContainer.selectAll(".grid-line").remove();
+
+  gridContainer
+    .selectAll(".horizontal-grid-line")
+    .data(yScale.ticks(10))
+    .enter()
+    .append("line")
+    .attr("class", "grid-line horizontal-grid-line")
+    .attr("x1", margin.left)
+    .attr("x2", width - margin.right)
+    .attr("y1", (d) => yScale(d))
+    .attr("y2", (d) => yScale(d))
+    .attr("stroke", "#e0e0e0")
+    .attr("stroke-width", 1)
+    .attr("stroke-dasharray", "4,4");
+
+  gridContainer
+    .selectAll(".vertical-grid-line")
+    .data(xScale.ticks(10))
+    .enter()
+    .append("line")
+    .attr("class", "grid-line vertical-grid-line")
+    .attr("x1", (d) => xScale(d))
+    .attr("x2", (d) => xScale(d))
+    .attr("y1", margin.top)
+    .attr("y2", height - margin.bottom)
+    .attr("stroke", "#e0e0e0")
+    .attr("stroke-width", 1)
+    .attr("stroke-dasharray", "4,4");
+}
 
 function updateScatterPlot() {
   if (!xMeasure || !yMeasure) {
@@ -144,14 +187,23 @@ function updateScatterPlot() {
   const yData = dataByMeasure[yMeasure];
 
 
-  const xDomain = [
-    d3.min([...xData.values()].filter(Boolean), (teamData) => d3.min(Object.values(teamData).filter((v) => v !== null && v !== undefined))),
-    d3.max([...xData.values()].filter(Boolean), (teamData) => d3.max(Object.values(teamData).filter((v) => v !== null && v !== undefined))),
-  ];
-  const yDomain = [
-    d3.min([...yData.values()].filter(Boolean), (teamData) => d3.min(Object.values(teamData).filter((v) => v !== null && v !== undefined))),
-    d3.max([...yData.values()].filter(Boolean), (teamData) => d3.max(Object.values(teamData).filter((v) => v !== null && v !== undefined))),
-  ];
+  const getDomain = (measure, data) => {
+    if (measure === "transferBalance") {
+      return [-230000, 200000];
+    } else if (measure === "legioners") {
+      return [0, 50];
+    } else if (measure === "teamSizeRatio") {
+      return [0, 3.5];
+    } else {
+      return [
+        d3.min([...data.values()].filter(Boolean), (teamData) => d3.min(Object.values(teamData).filter((v) => v !== null && v !== undefined))),
+        d3.max([...data.values()].filter(Boolean), (teamData) => d3.max(Object.values(teamData).filter((v) => v !== null && v !== undefined))),
+      ];
+    }
+  };
+
+  const xDomain = getDomain(xMeasure, xData);
+  const yDomain = getDomain(yMeasure, yData);
 
   xScale.domain(xDomain);
   yScale.domain(yDomain);
@@ -164,10 +216,9 @@ function updateScatterPlot() {
     .attr("transform", `translate(${margin.left}, 0)`)
     .call(d3.axisLeft(yScale));
 
+  updateGrid();
   drawCircles(currentYear);
 }
-
-
 
 function updateClubInfo(club, year) {
   const country = countryInfo.find((c) =>
