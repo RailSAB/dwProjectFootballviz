@@ -9,6 +9,8 @@
   let clubInfo = {};
   let countryInfo = {};
   let countryMappingData;
+  let clubNameMapping = {};
+  let countryNameMapping = {};
 
   let selectedCountries = {}
 
@@ -59,15 +61,17 @@
   let geoData, currentYear = 2015, autoplay = false;
 
   Promise.all([
-    d3.json("data/world.geojson"),
-    d3.json("data/average_team_cost.json"),
+    d3.json("data/world.geojson"), 
+    d3.json("data/average_team_cost.json"), 
     d3.json("data/full_players_costs.json"),
     d3.json("data/legionnaires_total_amount.json"),
     d3.json("data/national_teams_players_total_amount.json"),
     d3.json("data/total_average_age.json"),
     d3.json("data/country_names.json"),
     d3.json("data/club_info.json"),
-    d3.json("data/country_info.json")
+    d3.json("data/country_info.json"),
+    d3.json("data/club_name_mapping.json"),
+    d3.json("data/country_name_mapping.json")
   ]).then(([geoDataResponse,
     averageTeamCostResponse,
     fullPlayersCostResponse,
@@ -76,7 +80,9 @@
     totalAverageAgeResponse,
     countryMappingDataResponse,
     clubInfoResponse,
-    countryInfoResponse]) => {
+    countryInfoResponse,
+    clubNameMappingResponse,
+    countryNameMappingResponse]) => {
     geoData = geoDataResponse;
     statsData = {
       average_team_cost: averageTeamCostResponse,
@@ -92,6 +98,14 @@
     }, {});
     clubInfo = clubInfoResponse;
     countryInfo = countryInfoResponse;
+    clubNameMapping = clubNameMappingResponse.reduce((acc, entry) => {
+      acc[entry.TeamName] = entry.TranslatedName;
+      return acc;
+    }, {});
+    countryNameMapping = countryNameMappingResponse.reduce((acc, entry) => {
+      acc[entry.NationalTeamName] = entry.TranslatedName;
+      return acc;
+    }, {});
 
     updateMap();
   });
@@ -133,7 +147,7 @@
       <table id="country-info-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
         <!-- Таблица будет заполняться динамически -->
       </table>
-      <button id="view-on-scatter" style="margin-top: 10px; padding: 5px 10px; background-color: #007bb8; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      <button id="view-on-scatter" style="margin-top: 10px; padding: 5px 10px; background-color: #f9eadb; color: #333; border: none; border-radius: 4px; cursor: pointer;">
         View on Scatter
       </button>
     `;
@@ -154,26 +168,24 @@
   };
 
   const navigateToScatter = (countryName) => {
-
     const countryInfoEntry = countryMappingData.find(entry => entry.EnglishName === countryName);
     const russianName = countryInfoEntry?.NationalTeamName;
 
     if (russianName) {
+      const englishName = countryNameMapping[russianName] || russianName; // Map to English name
 
       const countrySelect = document.getElementById("country-select");
-      const countryOption = Array.from(countrySelect.options).find(option => option.value === russianName);
+      const countryOption = Array.from(countrySelect.options).find(option => option.value === englishName);
 
       if (countryOption) {
-        countrySelect.value = russianName;
-
+        countrySelect.value = englishName;
 
         const event = new Event("change");
         countrySelect.dispatchEvent(event);
 
-
         document.getElementById("scatter-section").scrollIntoView({ behavior: "smooth" });
       } else {
-        console.warn(`Country "${russianName}" not found in the scatter plot dropdown.`);
+        console.warn(`Country "${englishName}" not found in the scatter plot dropdown.`);
       }
     } else {
       console.warn(`Country "${countryName}" not found in the countryInfo dataset.`);
@@ -406,6 +418,10 @@
 
 
 
+  function getEnglishClubName(clubName) {
+    return clubNameMapping[clubName] || clubName;
+  }
+
   function updateCountryInfoTable(selectedMeasure, selectedYear, countryClubs) {
     const dataFiles = {
       "Average Team Cost": "data/total_team_cost.json",
@@ -449,7 +465,7 @@
         const value = clubData ? clubData[measureKey] : "N/A";
 
         const row = table.append("tr");
-        row.append("td").text(club.Team_name);
+        row.append("td").text(getEnglishClubName(club.Team_name)); // Use English name
         row.append("td").text(value);
       });
     }).catch(error => {

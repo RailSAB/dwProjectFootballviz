@@ -16,7 +16,7 @@ let selectedCountry = "all";
 const margin = { top: 50, right: 50, bottom: 70, left: 70 };
 
 const width = 800;
-const height = 600;
+const height = 450;
 
 const svg = d3
   .select("#scatter-plot")
@@ -38,7 +38,32 @@ const toggleTrajectoryCheckbox = document.getElementById('toggle-trajectory');
 let showTrajectory = toggleTrajectoryCheckbox.checked;
 
 let trajectoryData = [];
+let clubNameMapping = {};
+let countryNameMapping = {};
 
+// Load the club name mapping
+d3.json("data/club_name_mapping.json").then((mappingData) => {
+  clubNameMapping = Object.fromEntries(
+    mappingData.map((entry) => [entry.TeamName, entry.TranslatedName])
+  );
+});
+
+// Load the country name mapping
+d3.json("data/country_name_mapping.json").then((mappingData) => {
+  countryNameMapping = Object.fromEntries(
+    mappingData.map((entry) => [entry.NationalTeamName, entry.TranslatedName])
+  );
+});
+
+// Helper function to get the English name of a club
+function getEnglishClubName(originalName) {
+  return clubNameMapping[originalName] || originalName;
+}
+
+// Helper function to get the English name of a country
+function getEnglishCountryName(originalName) {
+  return countryNameMapping[originalName] || originalName;
+}
 
 Promise.all([
   d3.json("data/club_info.json"),
@@ -46,7 +71,7 @@ Promise.all([
   d3.json("data/average_age_per_team.json"),
   d3.json("data/club_titles.json"),
   d3.json("data/legionnaires_per_team.json"),
-  d3.json("data/clubs_and_national_players.json"),
+  d3.json("data/clubs_and_national_players.json"), 
   d3.json("data/team_size_ratio.json"),
   d3.json("data/total_team_cost.json"),
   d3.json("data/transfer_balance.json"),
@@ -55,7 +80,7 @@ Promise.all([
   clubInfo = clubInfoData;
   countryInfo = countryInfoData;
 
-  const countryNames = [...new Set(countryInfo.map((c) => c.NationalTeamName))];
+  const countryNames = [...new Set(countryInfo.map((c) => getEnglishCountryName(c.NationalTeamName)))];
   colorScale = d3.scaleOrdinal()
     .domain(countryNames)
     .range(d3.quantize(d3.interpolateRainbow, countryNames.length));
@@ -132,12 +157,12 @@ Promise.all([
       .style("border-radius", "50%");
     legendItem.append("span").text(country);
 
-    // Добавляем обработчик клика для подсветки клубов
+
     legendItem.on("click", () => {
       svg.selectAll("circle")
         .attr("opacity", (d) => {
-          const clubCountry = countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName;
-          return clubCountry === country ? 1 : 0.2; // Подсвечиваем клубы из выбранной страны
+          const clubCountry = getEnglishCountryName(countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName);
+          return clubCountry === country ? 1 : 0.2; 
         });
         trajectoryContainer.selectAll("path").remove();
     });
@@ -221,9 +246,11 @@ function updateScatterPlot() {
 }
 
 function updateClubInfo(club, year) {
-  const country = countryInfo.find((c) =>
-    c.ClubIDs.includes(club.TeamID)
-  )?.NationalTeamName;
+  const country = getEnglishCountryName(
+    countryInfo.find((c) =>
+      c.ClubIDs.includes(club.TeamID)
+    )?.NationalTeamName
+  );
 
   const xValue = dataByMeasure[xMeasure]?.get(club.TeamID)?.[currentYear] || "N/A";
   const yValue = dataByMeasure[yMeasure]?.get(club.TeamID)?.[currentYear] || "N/A";
@@ -240,8 +267,8 @@ function updateClubInfo(club, year) {
   };
 
   d3.select("#scatter-club-info").html(`
-    <img src="${club.ImageLink}" alt="${club.Team_name} flag">
-    <h3>${club.Team_name}</h3>
+    <img src="${club.ImageLink}" alt="${getEnglishClubName(club.Team_name)} flag">
+    <h3>${getEnglishClubName(club.Team_name)}</h3>
     <p><span>Country:</span> ${country || "Unknown"}</p>
     <p><span>Number of Cups:</span> ${club.NumberOfCups}</p>
     <p><span>${measureMapping[yMeasure]}:</span> ${yValue}</p>
@@ -344,7 +371,9 @@ const legendContainer = d3.select("#scatter-legend-container");
 function drawCircles(year) {
   let circles = svg.selectAll("circle").data(clubInfo.filter((d) => {
     if (selectedCountry === "all") return true;
-    const country = countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName;
+    const country = getEnglishCountryName(
+      countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName
+    );
     return country === selectedCountry;
   }), (d) => d.TeamID);
 
@@ -357,7 +386,9 @@ function drawCircles(year) {
     .append("circle")
     .attr("r", (d) => radiusScale(d.NumberOfCups))
     .attr("fill", (d) => {
-      const country = countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName;
+      const country = getEnglishCountryName(
+        countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName
+      );
       return colorScale(country || "Unknown");
     })
     .attr("stroke", "black")
@@ -386,7 +417,7 @@ function drawCircles(year) {
         .attr("font-size", "14px")
         .attr("font-weight", "bold")
         .attr("fill", "black")
-        .text(d.Team_name);
+        .text(getEnglishClubName(d.Team_name));
 
       const bbox = tempText.node().getBBox();
 
@@ -436,7 +467,9 @@ function drawCircles(year) {
     .attr("cx", (d) => xScale(dataByMeasure[xMeasure]?.get(d.TeamID)?.[year] || 0))
     .attr("cy", (d) => yScale(dataByMeasure[yMeasure]?.get(d.TeamID)?.[year] || 0))
     .attr("fill", (d) => {
-      const country = countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName;
+      const country = getEnglishCountryName(
+        countryInfo.find((c) => c.ClubIDs.includes(d.TeamID))?.NationalTeamName
+      );
       return colorScale(country || "Unknown");
     });
 
